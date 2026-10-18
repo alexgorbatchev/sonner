@@ -169,8 +169,9 @@ const Toast = (props: ToastProps) => {
   }, [setHeights, toast.id]);
 
   React.useLayoutEffect(() => {
-    // Keep height up to date with the content in case it updates
-    if (!mounted) return;
+    // Keep height up to date after every render, not only when the content props change: host styling such as
+    // density, font size or padding can change the toast's height while its title and description stay the same.
+    if (!mounted || removed) return;
     const toastNode = toastRef.current;
     const originalHeight = toastNode.style.height;
     toastNode.style.height = 'auto';
@@ -183,11 +184,14 @@ const Toast = (props: ToastProps) => {
       const alreadyExists = heights.find((height) => height.toastId === toast.id);
       if (!alreadyExists) {
         return [{ toastId: toast.id, height: newHeight, position: toast.position }, ...heights];
-      } else {
-        return heights.map((height) => (height.toastId === toast.id ? { ...height, height: newHeight } : height));
       }
+      if (alreadyExists.height === newHeight) {
+        // Measuring on every render must not schedule another render when nothing changed.
+        return heights;
+      }
+      return heights.map((height) => (height.toastId === toast.id ? { ...height, height: newHeight } : height));
     });
-  }, [mounted, toast.title, toast.description, setHeights, toast.id, toast.jsx, toast.action, toast.cancel]);
+  });
 
   const deleteToast = React.useCallback(() => {
     // Save the offset for the exit swipe animation
